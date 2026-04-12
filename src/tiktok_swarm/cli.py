@@ -441,5 +441,37 @@ def knowledge():
         render(topic, content if len(content) < 500 else content[:500] + "...")
 
 
+# ── Updates ────────────────────────────────────────────────────────────
+
+
+@main.command(name="check-updates")
+def check_updates():
+    """Check if updates are available."""
+    from .updater import check_for_updates
+    console.print(check_for_updates())
+
+
+@main.command(name="self-update")
+def self_update():
+    """Pull latest code and reinstall dependencies."""
+    from .updater import apply_update
+    console.print("[bold]Updating...[/]\n")
+    console.print(apply_update())
+
+
+@main.command()
+def version():
+    """Show current version."""
+    import subprocess
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent.parent
+    try:
+        result = subprocess.run(["git", "log", "-1", "--format=%h %s (%cr)"], cwd=root, capture_output=True, text=True, timeout=10)
+        console.print(f"  {result.stdout.strip()}")
+    except Exception:
+        from . import __version__
+        console.print(f"  v{__version__}")
+
+
 if __name__ == "__main__":
     main()
