@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from ..llm import ask
 from ..config import ANALYTICS_DIR
-from ..security import sanitize_prompt_input
+from ..security import sanitize_prompt_input, build_prompt
 
 METRICS_FILE = ANALYTICS_DIR / "metrics.json"
 
@@ -85,12 +85,10 @@ def analyze_performance() -> str:
     if not metrics:
         return "No data yet. Log posts with: tt log-post"
 
-    summary = json.dumps(metrics, indent=2)
+    summary = sanitize_prompt_input(json.dumps(metrics, indent=2), "context")
 
-    prompt = f"""Analyze this TikTok account's performance data and provide actionable optimization insights.
-
-Data:
-{summary}
+    prompt = build_prompt(
+        """Analyze this TikTok account's performance data and provide actionable optimization insights.
 
 Analyze:
 1. **Top performers** — which posts got the best engagement and why
@@ -103,9 +101,15 @@ Analyze:
 8. **Revenue analysis** — commission per view, per post, per product category
 9. **What to double down on** — specific content to make MORE of
 10. **What to stop doing** — content types that underperform
-11. **Next 3 videos** — exact recommendations based on data"""
+11. **Next 3 videos** — exact recommendations based on data""",
+        performance_data=summary,
+    )
 
-    return ask(prompt, summary, temperature=0.5)
+    ANALYST_SYSTEM = """You are a Performance Analyst for a TikTok influencer. Analyze
+performance data and extract actionable, data-driven insights. Be specific, cite
+numbers from the data, and make concrete recommendations."""
+
+    return ask(ANALYST_SYSTEM, prompt, temperature=0.5)
 
 
 def show_dashboard(limit: int = 10) -> str:
