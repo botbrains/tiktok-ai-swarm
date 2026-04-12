@@ -1,6 +1,7 @@
 """Live Director — plans and runs TikTok live sessions."""
 from ..llm import ask
 from ..config import load_config
+from ..security import sanitize_prompt_input, build_prompt
 
 SYSTEM = """You are the Live Director for a TikTok influencer's live streams.
 You plan, script, and manage live sessions that drive engagement and sales.
@@ -32,16 +33,21 @@ Key techniques:
 
 def plan_live(product: str, duration_min: int = 30, context: str = "") -> str:
     cfg = load_config()
+    safe_duration = min(max(int(duration_min), 5), 120)
+    persona = sanitize_prompt_input(cfg.get("persona_name", "[Creator]"), "product")
+    style = sanitize_prompt_input(cfg.get("persona_style", "authentic, energetic"), "context")
 
-    prompt = f"""Plan a TikTok LIVE session in detail.
+    prompt = build_prompt(
+        f"""Plan a TikTok LIVE session in detail.
 
-Product to feature: {product}
-Duration: {duration_min} minutes
-Persona: {cfg.get('persona_name', '[Creator]')}
-Style: {cfg.get('persona_style', 'authentic, energetic')}
-Context: {context or 'regular scheduled live'}
+Duration: {safe_duration} minutes
+Persona: {persona}
+Style: {style}
 
-Provide a minute-by-minute rundown:
+Provide a minute-by-minute rundown:""",
+        product=product,
+        context=context or "regular scheduled live",
+    ) + """
 - **Minute 0-2:** Opening script (exact words for greeting)
 - **Minute 2-5:** Hook and engagement starter
 - **Minute 5-10:** Warm-up content / Q&A
@@ -61,7 +67,10 @@ Also provide:
 
 
 def generate_live_responses(product: str) -> str:
-    prompt = f"""Generate a response bank for a TikTok LIVE about: {product}
+    prompt = build_prompt(
+        "Generate a response bank for a TikTok LIVE session.",
+        product=product,
+    ) + """
 
 Create ready-to-use responses for common live chat scenarios:
 

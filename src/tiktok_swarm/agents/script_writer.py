@@ -2,6 +2,7 @@
 from ..llm import ask
 from ..config import load_config
 from ..knowledge.store import load_knowledge
+from ..security import sanitize_prompt_input, build_prompt
 
 SYSTEM = """You are a TikTok Script Writer. You write scripts specifically for TikTok's
 unique format and audience behavior.
@@ -35,23 +36,26 @@ Camera directions:
 def write_video_script(product: str, format: str = "review", duration: str = "30s",
                        trend: str = "", key_points: str = "") -> str:
     cfg = load_config()
-    persona = cfg.get("persona_name", "")
-    style = cfg.get("persona_style", "")
-    catchphrase = cfg.get("persona_catchphrase", "")
+    persona = sanitize_prompt_input(cfg.get("persona_name", ""), "product")
+    style = sanitize_prompt_input(cfg.get("persona_style", ""), "context")
+    catchphrase = sanitize_prompt_input(cfg.get("persona_catchphrase", ""), "context")
 
     hook_knowledge = load_knowledge("proven_hooks")
-    hook_ctx = f"\nProven hooks that worked before:\n{hook_knowledge}" if hook_knowledge else ""
+    hook_ctx = f"\nProven hooks that worked before:\n{sanitize_prompt_input(hook_knowledge, 'context')}" if hook_knowledge else ""
 
-    prompt = f"""Write a TikTok video script.
+    ALLOWED_FORMATS = {"review", "grwm", "skit", "tutorial", "storytime", "comparison", "trend"}
+    safe_format = format if format in ALLOWED_FORMATS else "review"
+    ALLOWED_DURATIONS = {"15s", "30s", "60s", "90s"}
+    safe_duration = duration if duration in ALLOWED_DURATIONS else "30s"
 
-Product: {product}
-Format: {format}
-Target duration: {duration}
+    prompt = build_prompt(
+        f"""Write a TikTok video script.
+
+Format: {safe_format}
+Target duration: {safe_duration}
 Persona: {persona or '[Creator]'}
 Style: {style or 'authentic, entertaining'}
 Catchphrase: {catchphrase or 'none yet'}
-Trend to incorporate: {trend or 'none — original content'}
-Key points to hit: {key_points or 'identify the strongest selling points'}
 {hook_ctx}
 
 Deliver:
@@ -61,20 +65,25 @@ Deliver:
 4. **Sound suggestion** — trending sound or original audio
 5. **Caption** with hashtags (8-10)
 6. **Thumbnail/cover frame** description
-7. **CTA** that drives follows AND link clicks"""
+7. **CTA** that drives follows AND link clicks""",
+        product=product,
+        trend=trend or "none — original content",
+        features=key_points or "identify the strongest selling points",
+    )
 
     return ask(SYSTEM, prompt, temperature=0.7)
 
 
 def write_live_script(product: str, duration_min: int = 30, talking_points: str = "") -> str:
     cfg = load_config()
+    safe_duration = min(max(int(duration_min), 5), 120)
+    persona = sanitize_prompt_input(cfg.get("persona_name", "[Creator]"), "product")
 
-    prompt = f"""Write a TikTok LIVE session script/outline.
+    prompt = build_prompt(
+        f"""Write a TikTok LIVE session script/outline.
 
-Product to feature: {product}
-Duration: {duration_min} minutes
-Persona: {cfg.get('persona_name', '[Creator]')}
-Talking points: {talking_points or 'generate based on product'}
+Duration: {safe_duration} minutes
+Persona: {persona}
 
 Structure the live as:
 1. **Opening (2 min)** — greet viewers, build energy, tease what's coming
@@ -89,15 +98,20 @@ Include:
 - **Comment prompts** — questions to ask that drive comment engagement
 - **Objection responses** — pre-written answers to common buyer hesitations
 - **Filler topics** — what to talk about during slow moments
-- **Pin comment** — what to pin at the top of chat"""
+- **Pin comment** — what to pin at the top of chat""",
+        product=product,
+        context=talking_points or "generate based on product",
+    )
 
     return ask(SYSTEM, prompt, temperature=0.7)
 
 
 def write_series(theme: str, num_parts: int = 5) -> str:
-    prompt = f"""Create a {num_parts}-part TikTok series concept.
+    safe_parts = min(max(int(num_parts), 2), 10)
 
-Theme: {theme}
+    prompt = build_prompt(
+        f"""Create a {safe_parts}-part TikTok series concept.
+
 Goal: Drive follows (people follow to see the next part) AND product sales
 
 For each part:
@@ -107,6 +121,8 @@ For each part:
 4. **Product integration** — how a product naturally fits this episode
 5. **Cliffhanger/tease** — what makes them need Part X+1
 
-The series should escalate — each part slightly more valuable than the last."""
+The series should escalate — each part slightly more valuable than the last.""",
+        theme=theme,
+    )
 
     return ask(SYSTEM, prompt, temperature=0.8)

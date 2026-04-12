@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from ..llm import ask
 from ..config import ANALYTICS_DIR
+from ..security import sanitize_prompt_input
 
 METRICS_FILE = ANALYTICS_DIR / "metrics.json"
 
@@ -40,11 +41,11 @@ def log_post(
     metrics = _load_metrics()
     entry = {
         "date": datetime.now().isoformat()[:10],
-        "title": title,
-        "format": format,
-        "product": product,
-        "hook_type": hook_type,
-        "post_time": post_time,
+        "title": sanitize_prompt_input(title, "product")[:100],
+        "format": sanitize_prompt_input(format, "context")[:30],
+        "product": sanitize_prompt_input(product, "product")[:100],
+        "hook_type": sanitize_prompt_input(hook_type, "context")[:50],
+        "post_time": post_time[:10],
         "views": views,
         "likes": likes,
         "comments": comments,

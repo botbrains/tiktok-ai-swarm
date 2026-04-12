@@ -2,6 +2,7 @@
 from ..llm import ask
 from ..config import load_config
 from ..knowledge.store import load_knowledge
+from ..security import sanitize_prompt_input, build_prompt, is_injection_attempt
 
 SYSTEM = """You are the Engagement Manager for a TikTok influencer account. Your job
 is to build community and drive growth through strategic engagement.
@@ -33,13 +34,19 @@ DM strategy:
 
 def generate_comments(video_topic: str, target: str = "own", count: int = 5) -> str:
     cfg = load_config()
-    persona = cfg.get("persona_style", "authentic")
+    persona = sanitize_prompt_input(cfg.get("persona_style", "authentic"), "context")
+    safe_target = "own" if target == "own" else "others"
+    safe_count = min(max(int(count), 1), 10)
 
-    prompt = f"""Generate {count} strategic TikTok comments.
+    prompt = build_prompt(
+        f"""Generate {safe_count} strategic TikTok comments.
 
-Target: {"my own video" if target == "own" else "other creators' videos in my niche"}
-Video topic: {video_topic}
-My persona: {persona}
+Target: {"my own video" if safe_target == "own" else "other creators' videos in my niche"}
+My persona: {persona}""",
+        topic=video_topic,
+    ) + f"""
+
+{"For my own video — generate:" if safe_target == "own" else "For other creators' videos — generate:"}
 
 {"For my own video — generate:" if target == "own" else "For other creators' videos — generate:"}
 
@@ -60,13 +67,16 @@ Each comment should feel human and natural, NEVER generic or spammy."""
 
 
 def reply_to_comment(comment: str, video_context: str, product: str = "") -> str:
-    cfg = load_config()
-    prompt = f"""Write a reply to this TikTok comment.
+    if is_injection_attempt(comment):
+        return "[BLOCKED] Comment contains suspicious content. Skipping reply generation."
 
-Their comment: "{comment}"
-Video context: {video_context}
-Product mentioned: {product or 'none specifically'}
-My style: {cfg.get('persona_style', 'authentic, helpful')}
+    cfg = load_config()
+    style = sanitize_prompt_input(cfg.get("persona_style", "authentic, helpful"), "context")
+
+    prompt = build_prompt(
+        f"""Write a reply to this TikTok comment.
+
+My style: {style}
 
 The reply should:
 - Feel genuine and personal (not corporate/bot-like)
@@ -74,17 +84,24 @@ The reply should:
 - If relevant, naturally mention the product or link
 - Be concise (1-2 sentences max for TikTok)
 
-Give 2 options: one casual, one that drives action."""
+Give 2 options: one casual, one that drives action.""",
+        comment=comment,
+        context=video_context,
+        product=product or "none specifically",
+    )
 
     return ask(SYSTEM, prompt, temperature=0.8)
 
 
 def growth_tasks(current_followers: int = 0) -> str:
     cfg = load_config()
-    prompt = f"""Generate today's growth task list for a TikTok account.
+    safe_followers = min(max(int(current_followers), 0), 100_000_000)
+    niche = sanitize_prompt_input(cfg.get("persona_niche", "product reviews"), "niche")
 
-Current followers: {current_followers or 'new account'}
-Niche: {cfg.get('persona_niche', 'product reviews')}
+    prompt = build_prompt(
+        f"""Generate today's growth task list for a TikTok account.
+
+Current followers: {safe_followers or 'new account'}
 
 Create a specific, actionable task list:
 1. **5 accounts to engage with** — types of creators to comment on (not specific names)
@@ -93,6 +110,8 @@ Create a specific, actionable task list:
 4. **Collaboration pitch** — template for reaching out to a similar-sized creator
 5. **Community action** — one thing to do that builds loyal followers (not just viewers)
 
-Include time estimates. Total should be under 1 hour of engagement work."""
+Include time estimates. Total should be under 1 hour of engagement work.""",
+        niche=niche,
+    )
 
     return ask(SYSTEM, prompt, temperature=0.8)

@@ -8,6 +8,7 @@ import json
 import time
 from pathlib import Path
 from ..config import load_config, DATA_DIR
+from ..security import sanitize_prompt_input, build_prompt, is_injection_attempt, validate_rtmp_url, validate_stream_key
 from ..agents.live_director import plan_live, generate_live_responses
 from ..llm import ask
 
@@ -22,6 +23,14 @@ def start_stream(rtmp_url: str, stream_key: str, video_source: str) -> subproces
     - A virtual camera device
     - An image + audio stream
     """
+    # Validate inputs to prevent command injection
+    rtmp_url = validate_rtmp_url(rtmp_url)
+    stream_key = validate_stream_key(stream_key)
+
+    # Validate video source exists as a file
+    if not Path(video_source).exists():
+        raise ValueError(f"Video source not found: {video_source}")
+
     cmd = [
         "ffmpeg",
         "-re",  # Read at native framerate
@@ -79,16 +88,22 @@ def prepare_live_session(product: str, duration_min: int = 30) -> dict:
 
 
 def generate_live_reply(viewer_comment: str, product: str, context: str = "") -> str:
-    """Generate a real-time response to a viewer comment during live."""
+    """Generate a real-time response to a viewer comment during live.
+
+    This is the highest-risk injection surface — TikTok comments are attacker-controlled.
+    """
+    # Hard block on injection attempts from live chat
+    if is_injection_attempt(viewer_comment):
+        return "Thanks for the comment! Keep the questions coming."
+
     cfg = load_config()
+    persona = sanitize_prompt_input(cfg.get("persona_name", "Creator"), "product")
+    style = sanitize_prompt_input(cfg.get("persona_style", "authentic"), "context")
 
-    prompt = f"""You are live on TikTok right now. A viewer just commented:
+    prompt = build_prompt(
+        f"""You are live on TikTok right now. A viewer left a comment.
 
-"{viewer_comment}"
-
-Product you're showing: {product}
-Your persona: {cfg.get('persona_name', 'Creator')} — {cfg.get('persona_style', 'authentic')}
-Context: {context or 'mid-stream, good energy'}
+Your persona: {persona} — {style}
 
 Generate a natural, on-brand spoken response (1-2 sentences). It should:
 - Acknowledge the viewer by feel (not necessarily by name)
@@ -96,6 +111,10 @@ Generate a natural, on-brand spoken response (1-2 sentences). It should:
 - Keep the energy of the live going
 - If relevant, tie back to the product naturally
 
-Just the response, nothing else."""
+Just the response, nothing else.""",
+        comment=viewer_comment,
+        product=product,
+        context=context or "mid-stream, good energy",
+    )
 
     return ask("You are a TikTok live streamer responding to chat in real-time.", prompt, temperature=0.9)

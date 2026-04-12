@@ -2,6 +2,7 @@
 from ..llm import ask
 from ..config import load_config
 from ..knowledge.store import load_knowledge, append_knowledge
+from ..security import sanitize_prompt_input, build_prompt
 
 SYSTEM = """You are a Product Curator for a TikTok influencer account focused on
 affiliate revenue. You find products that are PERFECT for TikTok content.
@@ -33,19 +34,22 @@ Red flags to avoid:
 
 def find_products(category: str = "", count: int = 5, context: str = "") -> str:
     cfg = load_config()
-    niche = cfg.get("persona_niche", "")
+    niche = sanitize_prompt_input(cfg.get("persona_niche", ""), "niche")
 
     perf = load_knowledge("product_performance")
-    perf_ctx = f"\nPast product performance data:\n{perf}" if perf else ""
+    perf_ctx = f"\nPast product performance data:\n{sanitize_prompt_input(perf, 'context')}" if perf else ""
 
-    prompt = f"""Find {count} products optimized for TikTok affiliate content.
+    count = min(max(int(count), 1), 20)
 
-Account niche: {niche or 'lifestyle and product reviews'}
-Category: {category or 'best opportunity across all categories'}
-Context: {context or 'none'}
+    prompt = build_prompt(
+        f"""Find {count} products optimized for TikTok affiliate content.
 {perf_ctx}
 
-For each product:
+For each product:""",
+        category=category or "best opportunity across all categories",
+        niche=niche or "lifestyle and product reviews",
+        context=context or "none",
+    ) + """
 1. **Product type** (not specific brand)
 2. **Price range** — sweet spot for impulse buying
 3. **Visual hook** — what makes this look amazing on camera in 1 second
@@ -62,11 +66,11 @@ Rank by: (visual impact * demo-ability * commission) — highest first."""
 
 
 def evaluate_product(product: str, price: str = "", url: str = "") -> str:
-    prompt = f"""Evaluate this specific product for TikTok content potential.
-
-Product: {product}
-Price: {price or 'unknown'}
-URL: {url or 'none'}
+    prompt = build_prompt(
+        "Evaluate this specific product for TikTok content potential.",
+        product=product,
+        price=price or "unknown",
+    ) + """
 
 Score 1-10 on each dimension:
 1. **Visual Impact** — does it look interesting on camera?

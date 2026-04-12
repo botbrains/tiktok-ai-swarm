@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 import httpx
 from ..config import load_config, VIDEOS_DIR
+from ..security import validate_filename
 
 
 class AvatarBackend:
@@ -150,6 +151,8 @@ def generate_video(script: str, filename: str = "") -> str:
     if not filename:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = f"video_{timestamp}.mp4"
+    else:
+        filename = validate_filename(filename)
 
     output_path = VIDEOS_DIR / "rendered" / filename
     backend = get_backend()

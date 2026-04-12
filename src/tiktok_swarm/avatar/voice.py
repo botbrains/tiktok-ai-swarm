@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 import httpx
 from ..config import load_config, VIDEOS_DIR
+from ..security import validate_filename
 
 AUDIO_DIR = VIDEOS_DIR / "raw"
 
@@ -15,6 +16,8 @@ def synthesize_speech(text: str, filename: str = "") -> str:
     if not filename:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = f"voice_{timestamp}.mp3"
+    else:
+        filename = validate_filename(filename)
 
     output_path = AUDIO_DIR / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)

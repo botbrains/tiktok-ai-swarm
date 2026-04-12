@@ -1,11 +1,18 @@
-"""JSON-based knowledge store."""
+"""JSON-based knowledge store — with path traversal protection."""
 import json
 from pathlib import Path
 from ..config import KNOWLEDGE_DIR
+from ..security import validate_topic, validate_path
+
+
+def _safe_path(topic: str) -> Path:
+    """Get a validated path for a topic, blocking traversal attacks."""
+    safe_topic = validate_topic(topic)
+    return validate_path(KNOWLEDGE_DIR, f"{safe_topic}.json")
 
 
 def load_knowledge(topic: str) -> str:
-    path = KNOWLEDGE_DIR / f"{topic}.json"
+    path = _safe_path(topic)
     if not path.exists():
         return ""
     with open(path) as f:
@@ -19,14 +26,14 @@ def load_knowledge(topic: str) -> str:
 
 def save_knowledge(topic: str, content):
     KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
-    path = KNOWLEDGE_DIR / f"{topic}.json"
+    path = _safe_path(topic)
     with open(path, "w") as f:
         json.dump(content, f, indent=2)
 
 
 def append_knowledge(topic: str, entry: str):
     KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
-    path = KNOWLEDGE_DIR / f"{topic}.json"
+    path = _safe_path(topic)
     data = []
     if path.exists():
         with open(path) as f:

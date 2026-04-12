@@ -1,6 +1,7 @@
 """SEO Optimizer — hashtags, captions, posting times, discoverability."""
 from ..llm import ask
 from ..config import load_config
+from ..security import sanitize_prompt_input, build_prompt
 
 SYSTEM = """You are a TikTok SEO and Discovery specialist. You make content findable.
 
@@ -34,16 +35,18 @@ Comment strategy:
 
 def optimize_post(script: str, product: str, platform_notes: str = "") -> str:
     cfg = load_config()
-    niche = cfg.get("persona_niche", "")
+    niche = sanitize_prompt_input(cfg.get("persona_niche", ""), "niche")
 
-    prompt = f"""Optimize this TikTok post for maximum discovery and engagement.
+    prompt = build_prompt(
+        f"""Optimize this TikTok post for maximum discovery and engagement.
 
-Product: {product}
 Niche: {niche or 'product reviews'}
-Script summary: {script[:500] if len(script) > 500 else script}
-{f'Notes: {platform_notes}' if platform_notes else ''}
 
-Provide:
+Provide:""",
+        product=product,
+        script=script,
+        context=platform_notes,
+    ) + """
 1. **Caption** (with hook as first line, question to drive comments, natural CTA)
 2. **Hashtags** (3-5, strategically mixed)
 3. **Sound recommendation** (trending or original)
@@ -57,7 +60,10 @@ Provide:
 
 
 def hashtag_research(topic: str) -> str:
-    prompt = f"""Deep hashtag research for TikTok content about: {topic}
+    prompt = build_prompt(
+        "Deep hashtag research for TikTok content.",
+        topic=topic,
+    ) + """
 
 Find:
 1. **5 high-volume hashtags** (>1B views) — for broad reach
@@ -73,11 +79,15 @@ For each: view count estimate, competition level, and audience match."""
 
 def optimal_posting_schedule(niche: str = "", timezone: str = "") -> str:
     cfg = load_config()
+    safe_niche = sanitize_prompt_input(niche or cfg.get("persona_niche", "product reviews"), "niche")
+    safe_tz = sanitize_prompt_input(timezone or cfg.get("timezone", "America/New_York"), "context")
+    posts = min(max(int(cfg.get("posts_per_day", 3)), 1), 10)
+
     prompt = f"""Design the optimal TikTok posting schedule.
 
-Niche: {niche or cfg.get('persona_niche', 'product reviews')}
-Timezone: {timezone or cfg.get('timezone', 'America/New_York')}
-Posts per day: {cfg.get('posts_per_day', 3)}
+Niche: {safe_niche}
+Timezone: {safe_tz}
+Posts per day: {posts}
 
 Provide:
 1. **Weekday schedule** — exact times for each post slot with content type

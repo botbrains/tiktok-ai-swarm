@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta
 from ..llm import ask
 from ..config import load_config, CALENDAR_DIR, KNOWLEDGE_DIR
+from ..security import sanitize_prompt_input, build_prompt
 
 SYSTEM = """You are the Content Strategist for an AI-powered TikTok influencer account.
 You plan content that GROWS the account and CONVERTS viewers into buyers.
@@ -32,15 +33,17 @@ Growth hacking:
 def plan_week(focus: str = "") -> str:
     cfg = load_config()
     persona = cfg.get("persona_niche", "")
-    style = cfg.get("persona_style", "")
-    posts_per_day = cfg.get("posts_per_day", 3)
+    style = sanitize_prompt_input(cfg.get("persona_style", ""), "context")
+    posts_per_day = min(max(int(cfg.get("posts_per_day", 3)), 1), 10)
 
-    prompt = f"""Create a 7-day TikTok content calendar.
+    prompt = build_prompt(
+        f"""Create a 7-day TikTok content calendar.
 
-Account niche: {persona or 'product reviews and lifestyle'}
+Account niche: {sanitize_prompt_input(persona, 'niche') or 'product reviews and lifestyle'}
 Style: {style or 'authentic, entertaining, informative'}
-Posts per day: {posts_per_day}
-Special focus this week: {focus or 'growth and establishing authority'}
+Posts per day: {posts_per_day}""",
+        context=focus or "growth and establishing authority",
+    ) + """
 
 For each day, plan:
 - **Post 1 (morning):** Content type, topic, hook concept, format (15s/30s/60s)
@@ -71,12 +74,18 @@ Also include:
 
 def plan_today(notes: str = "") -> str:
     cfg = load_config()
-    prompt = f"""Plan today's TikTok content in detail.
+    niche = sanitize_prompt_input(cfg.get("persona_niche", "product reviews"), "niche")
+    style = sanitize_prompt_input(cfg.get("persona_style", "authentic"), "context")
+    times = cfg.get("post_times", ["09:00", "13:00", "19:00"])
 
-Niche: {cfg.get('persona_niche', 'product reviews')}
-Style: {cfg.get('persona_style', 'authentic')}
-Post times: {', '.join(cfg.get('post_times', ['09:00', '13:00', '19:00']))}
-Additional notes: {notes or 'none'}
+    prompt = build_prompt(
+        f"""Plan today's TikTok content in detail.
+
+Niche: {niche}
+Style: {style}
+Post times: {', '.join(times)}""",
+        context=notes or "none",
+    ) + """
 
 For each post, provide:
 1. **Exact hook** (first 3 seconds, word for word)
@@ -93,7 +102,12 @@ Also: one engagement task to do between posts (comment raid, duet, etc.)"""
 
 def analyze_trends(niche: str = "") -> str:
     cfg = load_config()
-    prompt = f"""Analyze current TikTok trends that can be adapted for this niche: {niche or cfg.get('persona_niche', 'product reviews')}
+    safe_niche = sanitize_prompt_input(niche or cfg.get("persona_niche", "product reviews"), "niche")
+
+    prompt = build_prompt(
+        "Analyze current TikTok trends that can be adapted for this niche.",
+        niche=safe_niche,
+    ) + """
 
 Identify:
 1. **3 trending formats** — the video structure/template that's going viral right now
