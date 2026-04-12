@@ -1,0 +1,35 @@
+{
+  "milestones": {
+    "0_to_1000": {
+      "goal": "1,000 followers (unlock LIVE)",
+      "strategy": "Post 3x/day consistently, engage heavily on others' content, use trending sounds",
+      "timeline": "2-4 weeks with consistency",
+      "focus": "Find your voice, test formats, identify what resonates"
+    },
+    "1000_to_10000": {
+      "goal": "10,000 followers (unlock bio link)",
+      "strategy": "Double down on top-performing formats, start series content, go live weekly",
+      "timeline": "1-3 months",
+      "focus": "Bio link unlocks affiliate revenue. This is the key milestone."
+    },
+    "10000_to_100000": {
+      "goal": "100,000 followers (brand deals start)",
+      "strategy": "Niche authority content, collaborations, live shopping events",
+      "timeline": "3-6 months",
+      "focus": "Build email list, diversify revenue, establish brand identity"
+    },
+    "100000_plus": {
+      "goal": "Creator Fund + brand partnerships",
+      "strategy": "TikTok Creator Marketplace, negotiate brand deals, launch own products",
+      "timeline": "6-12 months",
+      "focus": "Revenue optimization, team building, cross-platform expansion"
+    }
+  },
+  "key_metrics": {
+    "good_engagement_rate": "5-10%",
+    "great_engagement_rate": "10%+",
+    "target_watch_through_rate": "70%+",
+    "target_share_rate": "1%+",
+    "comments_per_view_target": "2-5%"
+  }
+}

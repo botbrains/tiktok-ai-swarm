@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+config.json
+data/analytics/
+data/calendar/
+data/videos/
+data/assets/avatars/
+!data/analytics/.gitkeep
+!data/calendar/.gitkeep
+!data/videos/.gitkeep

@@ -1,0 +1,52 @@
+{
+  "formats": {
+    "product_review": {
+      "duration": "15-60s",
+      "structure": "Hook → Demo → Verdict → CTA",
+      "best_for": "Direct affiliate conversions",
+      "hook_types": ["result-first", "contrarian", "social-proof"]
+    },
+    "get_ready_with_me": {
+      "duration": "30-60s",
+      "structure": "Routine start → Product integration → Result",
+      "best_for": "Beauty, skincare, fashion products",
+      "hook_types": ["curiosity-gap", "transformation"]
+    },
+    "pov_skit": {
+      "duration": "15-30s",
+      "structure": "Setup → Punchline → Product reveal",
+      "best_for": "Viral reach, brand awareness",
+      "hook_types": ["relatable-scenario", "unexpected-twist"]
+    },
+    "tutorial": {
+      "duration": "30-60s",
+      "structure": "Problem → Step-by-step → Result with product",
+      "best_for": "Searchable evergreen content",
+      "hook_types": ["problem-first", "did-you-know"]
+    },
+    "storytime": {
+      "duration": "30-60s",
+      "structure": "Hook → Story → Product was the solution",
+      "best_for": "Engagement and comments",
+      "hook_types": ["cliffhanger", "confession"]
+    },
+    "comparison": {
+      "duration": "15-30s",
+      "structure": "Product A vs Product B → Winner",
+      "best_for": "Decision-stage buyers",
+      "hook_types": ["versus", "myth-busting"]
+    },
+    "unboxing": {
+      "duration": "15-30s",
+      "structure": "Package → Reveal → First impression → Verdict",
+      "best_for": "New/trending products",
+      "hook_types": ["anticipation", "reaction"]
+    },
+    "day_in_my_life": {
+      "duration": "30-60s",
+      "structure": "Morning → Activities → Products throughout",
+      "best_for": "Multiple product mentions, lifestyle branding",
+      "hook_types": ["aesthetic", "relatable"]
+    }
+  }
+}
