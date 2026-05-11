@@ -473,5 +473,152 @@ def version():
         console.print(f"  v{__version__}")
 
 
+# ── TikTok Shop / Beacons Affiliate ───────────────────────────────────
+
+
+@main.command(name="shop-week")
+@click.option("--focus", "-f", default="", help="Optional theme/focus for the week")
+@click.option("--offers", "-n", default=5, help="Max number of offers in the slate")
+@click.option("--no-live", is_flag=True, default=False, help="Skip live run-of-show generation")
+def shop_week(focus, offers, no_live):
+    """Run the weekly TikTok Shop planning cycle.
+
+    Selects the best offers, generates a Beacons update pack
+    (beacons_weekly_pack_<week>.md) and a machine-readable slate
+    (weekly_offer_slate_<week>.json) in data/shop/artifacts/.
+    """
+    from .agents.shop_agent import run_weekly_planning
+
+    console.print("[bold]Shop Agent[/] running weekly planning...\n")
+    result = run_weekly_planning(n=offers, focus=focus, include_live=not no_live)
+    slate = result["slate"]
+    render(
+        f"Weekly Slate — {slate.week_of}",
+        f"**Headline:** {slate.headline}\n\n"
+        f"**Offers selected:** {len(slate.offer_ids)}\n\n"
+        f"**CTA strategy:** {slate.cta_strategy}\n\n"
+        f"**Artifacts written:**\n"
+        f"- `{result['md_path']}`\n"
+        f"- `{result['json_path']}`\n\n"
+        f"> Copy the contents of `beacons_weekly_pack_*.md` into your Beacons dashboard.",
+    )
+
+
+@main.command(name="shop-offers")
+def shop_offers():
+    """List the TikTok Shop offer catalog."""
+    from .shop.store import load_offers
+
+    offers = load_offers()
+    if not offers:
+        console.print("No offers yet. Add one with: [bold]tt shop-add-offer[/]")
+        return
+
+    console.print(f"\n  {'ID':<10} {'Active':<7} {'Title':<35} {'Price':>8}  {'Comm%':>6}  Category")
+    console.print("  " + "-" * 85)
+    for o in offers:
+        active_flag = "[green]yes[/]" if o.active else "[red]no[/]"
+        price = f"${o.price_usd:.2f}" if o.price_usd else "—"
+        comm = f"{o.commission_rate * 100:.0f}%" if o.commission_rate else "—"
+        console.print(
+            f"  {o.offer_id:<10} {active_flag:<7} {o.title[:35]:<35} {price:>8}  {comm:>6}  {o.category}"
+        )
+    console.print()
+
+
+@main.command(name="shop-add-offer")
+def shop_add_offer():
+    """Interactively add a product offer to the TikTok Shop catalog."""
+    from .shop.models import ShopOffer
+    from .shop.store import add_offer
+    from rich.prompt import Prompt
+
+    console.print("\n[bold cyan]Add TikTok Shop Offer[/]\n")
+    title = Prompt.ask("Product title")
+    category = Prompt.ask("Category (e.g. kitchen gadgets)", default="")
+    price = float(Prompt.ask("Price (USD)", default="0"))
+    comm = float(Prompt.ask("Commission rate (e.g. 0.10 for 10%)", default="0"))
+    url = Prompt.ask("TikTok Shop product URL")
+    region = Prompt.ask("Region", default="US")
+    notes = Prompt.ask("Notes (optional)", default="")
+
+    offer = ShopOffer(
+        title=title,
+        category=category,
+        price_usd=price,
+        commission_rate=comm,
+        tiktok_product_url=url,
+        region=region,
+        notes=notes,
+    )
+    add_offer(offer)
+    console.print(f"\n[green]Offer added![/] ID: [bold]{offer.offer_id}[/]")
+
+
+@main.command(name="shop-creative")
+@click.argument("offer_id")
+@click.option(
+    "--format", "-f", default="review",
+    type=click.Choice(["review", "grwm", "skit", "tutorial", "storytime", "comparison", "trend"]),
+    help="Video format",
+)
+def shop_creative(offer_id, format):
+    """Generate a compliant post creative for a Shop offer."""
+    from .shop.store import get_offer
+    from .agents.shop_agent import generate_post_creative
+
+    offer = get_offer(offer_id)
+    if not offer:
+        console.print(f"[red]Offer '{offer_id}' not found.[/] Run: tt shop-offers")
+        return
+
+    console.print(f"[bold]Shop Agent[/] generating {format} creative for: {offer.title}\n")
+    result = generate_post_creative(offer, format)
+    render(f"Shop Creative — {offer.title}", result)
+
+
+@main.command(name="shop-ingest")
+@click.argument("csv_path")
+def shop_ingest(csv_path):
+    """Ingest a TikTok/Shop affiliate performance CSV into the analytics store.
+
+    CSV must have a header row with columns: offer_id, date, views, clicks,
+    orders, commission, video_id, source (all optional except offer_id).
+    """
+    from .shop.analytics import ingest_csv_export
+
+    try:
+        count = ingest_csv_export(csv_path)
+        console.print(f"[green]Ingested {count} records from {csv_path}[/]")
+    except FileNotFoundError as e:
+        console.print(f"[red]{e}[/]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/]")
+
+
+@main.command(name="shop-rankings")
+def shop_rankings():
+    """Show offer performance rankings (feeds into next week's slate selection)."""
+    from .shop.analytics import compute_rankings
+
+    rankings = compute_rankings()
+    if not rankings:
+        console.print("No data yet. Log metrics with: [bold]tt shop-ingest[/]")
+        return
+
+    console.print(
+        f"\n  {'#':<4} {'Offer ID':<10} {'Score':>8}  {'Metric':<28}  "
+        f"{'Views':>8}  {'Clicks':>7}  {'Orders':>7}  {'Comm $':>8}  Title"
+    )
+    console.print("  " + "-" * 110)
+    for rank, r in enumerate(rankings, 1):
+        console.print(
+            f"  {rank:<4} {r['offer_id']:<10} {r['score']:>8.3f}  {r['metric_used']:<28}  "
+            f"{r['views']:>8}  {r['clicks']:>7}  {r['orders']:>7}  {r['commission']:>8.2f}  "
+            f"{r['title'][:30]}"
+        )
+    console.print()
+
+
 if __name__ == "__main__":
     main()

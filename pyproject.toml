@@ -15,6 +15,7 @@ dependencies = [
 voice = ["elevenlabs>=1.0"]
 avatar = ["replicate>=0.25"]
 full = ["elevenlabs>=1.0", "replicate>=0.25"]
+dev = ["pytest>=8.0"]
 
 [project.scripts]
 tt = "tiktok_swarm.cli:main"
