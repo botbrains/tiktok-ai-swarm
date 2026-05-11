@@ -1,5 +1,6 @@
 """Configuration — Ollama, TikTok API, avatar settings, scheduling."""
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -9,6 +10,7 @@ CALENDAR_DIR = DATA_DIR / "calendar"
 VIDEOS_DIR = DATA_DIR / "videos"
 ANALYTICS_DIR = DATA_DIR / "analytics"
 ASSETS_DIR = DATA_DIR / "assets"
+SHOP_DIR = DATA_DIR / "shop"
 
 CONFIG_FILE = ROOT / "config.json"
 
@@ -49,9 +51,18 @@ DEFAULT_CONFIG = {
     "live_duration_minutes": 30,
     "timezone": "America/New_York",
 
-    # Affiliate
+    # Affiliate — general
     "amazon_associate_tag": "",
     "linktree_url": "",
+
+    # TikTok Shop / Beacons affiliate monetization
+    "beacons_url": "",                     # e.g. https://beacons.ai/yourhandle
+    "shop_region": "US",                   # product availability region
+    "shop_max_offers_per_week": 5,
+    "shop_disclosure_template": (
+        "Some links are affiliate links. "
+        "I earn a small commission at no extra cost to you. #ad"
+    ),
 
     # Safety
     "require_approval": True,  # require human approval before posting
@@ -64,8 +75,29 @@ def load_config() -> dict:
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE) as f:
             saved = json.load(f)
-        return {**DEFAULT_CONFIG, **saved}
-    return DEFAULT_CONFIG.copy()
+        cfg = {**DEFAULT_CONFIG, **saved}
+    else:
+        cfg = DEFAULT_CONFIG.copy()
+
+    # Environment variable overrides — useful for secrets and deployment config.
+    # Set these in your shell or a .env file (loaded externally, e.g. via
+    # `export BEACONS_URL=https://beacons.ai/yourhandle` before running tt).
+    _env_map = {
+        "BEACONS_URL": "beacons_url",
+        "SHOP_REGION": "shop_region",
+        "SHOP_DISCLOSURE": "shop_disclosure_template",
+        "TIKTOK_CLIENT_KEY": "tiktok_client_key",
+        "TIKTOK_CLIENT_SECRET": "tiktok_client_secret",
+        "TIKTOK_ACCESS_TOKEN": "tiktok_access_token",
+        "HEYGEN_API_KEY": "heygen_api_key",
+        "ELEVENLABS_API_KEY": "elevenlabs_api_key",
+    }
+    for env_var, cfg_key in _env_map.items():
+        val = os.environ.get(env_var)
+        if val:
+            cfg[cfg_key] = val
+
+    return cfg
 
 
 def save_config(cfg: dict):

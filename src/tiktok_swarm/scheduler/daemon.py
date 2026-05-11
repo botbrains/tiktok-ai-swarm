@@ -86,7 +86,27 @@ def daily_plan():
     _log(f"Daily plan saved: {plan_file}")
 
 
-def run_daemon():
+def shop_weekly_cycle():
+    """Weekly TikTok Shop planning — runs every Monday at 06:00.
+
+    Selects the offer slate, generates a live run-of-show, and writes:
+      data/shop/artifacts/beacons_weekly_pack_<week>.md
+      data/shop/artifacts/weekly_offer_slate_<week>.json
+    """
+    cfg = load_config()
+    _log("[bold green]Shop Agent: weekly planning starting...[/]")
+    try:
+        from ..agents.shop_agent import run_weekly_planning
+        n = cfg.get("shop_max_offers_per_week", 5)
+        result = run_weekly_planning(n=n)
+        _log(f"[green]Shop slate written: {result['md_path'].name}[/]")
+        _log(f"[green]JSON slate written: {result['json_path'].name}[/]")
+        _log("[yellow]Manual step:[/] copy beacons_weekly_pack_*.md into your Beacons dashboard.")
+    except Exception as e:
+        _log(f"[red]Shop weekly cycle error: {e}[/]")
+
+
+
     """Run the 24/7 content daemon."""
     cfg = load_config()
     post_times = cfg.get("post_times", ["09:00", "13:00", "19:00"])
@@ -109,6 +129,9 @@ def run_daemon():
     schedule.every().day.at("10:00").do(engagement_cycle)
     schedule.every().day.at("14:00").do(engagement_cycle)
     schedule.every().day.at("18:00").do(engagement_cycle)
+
+    # Schedule weekly Shop planning every Monday at 06:00
+    schedule.every().monday.at("06:00").do(shop_weekly_cycle)
 
     _log("Daemon started. Press Ctrl+C to stop.")
     _log(f"Scheduled: daily plan at 07:00, posts at {', '.join(post_times)}")
